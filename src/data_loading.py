@@ -239,7 +239,12 @@ def transpose_df(df, cur_index_col, new_index_col):
 
 def run_create_Y(metadata_orig, pheno_data, pheno_var):
     """
-    Create continuous target vector (Y) from phenotype data.
+    Create target vectors from phenotype data.
+    
+    Creates three related target vectors:
+    - y_conditions: Binary spaceflight condition (0=ground, 1=flight)
+    - y_classes: Binary phenotype class based on median split
+    - y_vals: Continuous phenotype values
     
     Args:
         metadata_orig (pd.DataFrame): Sample metadata
@@ -247,7 +252,7 @@ def run_create_Y(metadata_orig, pheno_data, pheno_var):
         pheno_var (str): Column name of phenotype variable to use
         
     Returns:
-        np.ndarray: Continuous phenotype values aligned with samples
+        tuple: (y_conditions, y_classes, y_vals) - all np.ndarray
     """
     import numpy as np
     
@@ -273,11 +278,26 @@ def run_create_Y(metadata_orig, pheno_data, pheno_var):
         cond = 1 if metadata_orig.iloc[i]['Factor Value[Spaceflight]'] == 'Space Flight' else 0
         Y_dict['condition'][sample] = cond
 
+    # Binary classification based on median phenotype value
+    median_val = np.median(list(Y_dict['pheno val'].values()))
+    for sample in Y_dict['pheno val']:
+        if Y_dict['pheno val'][sample] > median_val:
+            Y_dict['pheno class'][sample] = 1
+        else:
+            Y_dict['pheno class'][sample] = 0
+
     # Sort by sample name for alignment
+    Y_dict_conditions = dict(sorted(Y_dict['condition'].items()))
     Y_dict_pheno_vals = dict(sorted(Y_dict['pheno val'].items()))
+    Y_dict_pheno_classes = dict(sorted(Y_dict['pheno class'].items()))
+
+    y_conditions = np.array(list(Y_dict_conditions.values()))
+    y_classes = np.array(list(Y_dict_pheno_classes.values()))
     y_vals = np.array(list(Y_dict_pheno_vals.values()))
 
+    print(f'  y_conditions: {y_conditions}')
+    print(f'  y_classes: {y_classes}')
     print(f'  [Y Values] n={len(y_vals)}, Mean={np.mean(y_vals):.2f}, '
           f'Median={np.median(y_vals):.2f}')
     
-    return y_vals
+    return y_conditions, y_classes, y_vals
